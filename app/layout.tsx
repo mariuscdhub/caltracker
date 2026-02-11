@@ -5,6 +5,8 @@ import { dark } from "@clerk/themes";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
+export const dynamic = 'force-dynamic';
+
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
