@@ -37,7 +37,7 @@ export function BottomNav() {
 
     return (
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-50">
-            <div className="bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-around p-2 shadow-2xl shadow-black/50 pointer-events-auto">
+            <div className="glass-panel bg-black/80 rounded-2xl flex items-center justify-around p-2 shadow-2xl shadow-black/50 pointer-events-auto">
                 {items.map((item) => (
                     <Link
                         key={item.href}

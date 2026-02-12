@@ -83,9 +83,9 @@ export function InputArea() {
     }, [type, selectedFood]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 animate-slideUp">
             {/* Raw/Cooked Toggle */}
-            <div className="bg-black/40 p-1 rounded-xl flex border border-white/5">
+            <div className="glass-panel p-1 rounded-xl flex">
                 <button
                     onClick={() => setType("RAW")}
                     className={cn(
@@ -112,29 +112,32 @@ export function InputArea() {
 
             {/* Search Bar / Selected Display */}
             {selectedFood ? (
-                <div className="bg-black/60 border border-white/10 rounded-xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                <div className="glass-panel rounded-xl p-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 border-l-4"
+                    style={{ borderLeftColor: type === 'RAW' ? '#10b981' : '#f97316' }}>
                     <div>
                         <span className="font-bold text-lg text-white block">{selectedFood.name}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded uppercase font-black tracking-wider",
+                            type === 'RAW' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'
+                        )}>
                             {type === "RAW" ? selectedFood.kcalRaw : selectedFood.kcalCooked} kcal / 100g
                         </span>
                     </div>
                     <button
                         onClick={() => setSelectedFood(null)}
-                        className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                        className="p-2 text-muted-foreground hover:text-white transition-colors"
                     >
-                        <X className="w-4 h-4 text-white" />
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
             ) : (
-                <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 pointer-events-none" />
+                <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 pointer-events-none group-focus-within:text-white transition-colors" />
                     <input
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Chercher (ex: Riz, Poulet...)"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-muted-foreground focus:outline-none focus:border-white/20 transition-colors"
+                        className="w-full glass-panel rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-muted-foreground focus:outline-none focus:border-white/20 transition-all font-medium"
                     />
                     {/* Dropdown Results */}
                     {search.length > 0 && (
@@ -143,9 +146,10 @@ export function InputArea() {
                                 <button
                                     key={food.id}
                                     onClick={() => handleSelectFood(food)}
-                                    className="w-full text-left p-4 hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors"
+                                    className="w-full text-left p-4 hover:bg-white/10 border-b border-white/5 last:border-0 transition-colors flex justify-between items-center group"
                                 >
-                                    <span className="font-bold text-white">{food.name}</span>
+                                    <span className="font-bold text-white max-w-[70%] truncate">{food.name}</span>
+                                    <span className="text-xs text-muted-foreground group-hover:text-emerald-400 transition-colors">Select &rarr;</span>
                                 </button>
                             ))}
                             {filteredFoods.length === 0 && (
@@ -157,35 +161,35 @@ export function InputArea() {
             )}
 
             {/* Conversion Input */}
-            <div className={cn("flex gap-4 transition-opacity duration-300", !selectedFood && "opacity-50 pointer-events-none grayscale")}>
-                <div className="flex-1 bg-black/40 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+            <div className={cn("flex gap-4 transition-all duration-500", !selectedFood && "opacity-50 pointer-events-none grayscale blur-sm")}>
+                <div className="flex-1 glass-panel rounded-xl p-4 flex items-center justify-between group focus-within:border-emerald-500/50 transition-colors">
                     <input
                         type="number"
                         placeholder="0"
                         value={weight}
                         onChange={(e) => handleWeightChange(e.target.value)}
-                        className="bg-transparent text-xl font-bold w-full outline-none text-white placeholder:text-muted-foreground/50"
+                        className="bg-transparent text-xl font-bold w-full outline-none text-white placeholder:text-muted-foreground/50 tabular-nums text-center"
                     />
-                    <span className="text-xs font-bold text-muted-foreground ml-2">G</span>
+                    <span className="text-xs font-bold text-muted-foreground ml-2 uppercase pointer-events-none">g</span>
                 </div>
 
                 <div className="flex items-center justify-center text-muted-foreground">
                     <ArrowRightLeft className="w-5 h-5" />
                 </div>
 
-                <div className="flex-1 bg-black/40 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                <div className="flex-1 glass-panel rounded-xl p-4 flex items-center justify-between group focus-within:border-emerald-500/50 transition-colors">
                     <input
                         type="number"
                         placeholder="0"
                         value={calories}
                         onChange={(e) => handleCaloriesChange(e.target.value)}
                         className={cn(
-                            "bg-transparent text-xl font-bold w-full outline-none placeholder:text-muted-foreground/50",
+                            "bg-transparent text-xl font-bold w-full outline-none placeholder:text-muted-foreground/50 tabular-nums text-center",
                             type === "RAW" ? "text-emerald-500" : "text-orange-500"
                         )}
                     />
                     <span className={cn(
-                        "text-xs font-bold ml-2",
+                        "text-xs font-bold ml-2 uppercase pointer-events-none",
                         type === "RAW" ? "text-emerald-500" : "text-orange-500"
                     )}>CAL</span>
                 </div>
