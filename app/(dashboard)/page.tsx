@@ -1,31 +1,35 @@
+"use client";
+
+import { MobileContainer } from "@/components/layout/mobile-container";
+import { MacroStats } from "@/components/dashboard/macro-stats";
+import { InputArea } from "@/components/dashboard/input-area";
 import { GlassPanel } from "@/components/ui/glass-panel";
 
 export default function TrackerPage() {
     return (
-        <div className="space-y-6">
-            <header className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-black text-white tracking-tighter">TODAY</h1>
+        <MobileContainer className="space-y-8">
+            {/* Header */}
+            <header className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center text-black font-black text-lg">C</div>
+                    <span className="font-bold tracking-tight text-white">CALTRACKER</span>
+                </div>
+                <button className="text-muted-foreground hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" x2="9" y1="12" y2="12" /></svg>
+                </button>
             </header>
 
-            {/* Goal Card Placeholder */}
-            <GlassPanel className="bg-gradient-to-br from-emerald-500/10 to-emerald-900/10 border-emerald-500/20">
-                <h2 className="text-sm font-bold text-emerald-400 mb-2">CALORIES REMAINING</h2>
-                <div className="text-5xl font-black text-white">2500</div>
-            </GlassPanel>
+            {/* Main Stats */}
+            <MacroStats remaining={2500} goal={2500} />
 
-            {/* Input Area Placeholder */}
-            <GlassPanel>
-                <p className="text-muted-foreground text-center py-8">Tracker Input Area</p>
-            </GlassPanel>
+            {/* Input Area */}
+            <InputArea />
 
-            {/* Daily Log Placeholder */}
-            <div className="space-y-4">
-                <h3 className="text-sm font-bold text-muted-foreground">LOGS</h3>
-                <GlassPanel className="flex justify-between items-center">
-                    <span>Breakfast</span>
-                    <span>500 kcal</span>
-                </GlassPanel>
+            {/* Recent Logs List (Placeholder for now) */}
+            <div className="space-y-4 pt-4">
+                {/* Empty state or list would go here */}
             </div>
-        </div>
+
+        </MobileContainer>
     );
 }
