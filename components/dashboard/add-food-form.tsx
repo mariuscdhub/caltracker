@@ -14,6 +14,7 @@ type FoodItem = StaticFood | CustomFood;
 export function AddFoodForm() {
     const [type, setType] = useState<'cru' | 'cuit'>('cru');
     const [search, setSearch] = useState("");
+    const [isFocused, setIsFocused] = useState(false);
     const [weight, setWeight] = useState("");
     const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
 
@@ -106,10 +107,12 @@ export function AddFoodForm() {
                             placeholder="Rechercher un aliment..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                             className="w-full bg-black/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
                         />
 
-                        {search && (
+                        {(search || isFocused) && (
                             <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto z-50">
                                 {filteredFoods.map(food => (
                                     <button
