@@ -24,7 +24,7 @@ export default function AuthForm({ mode }: { mode: "login" | "signup" }) {
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
-            router.push("/dashboard");
+            router.push("/journal");
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Une erreur est survenue.";
             setError(message);
