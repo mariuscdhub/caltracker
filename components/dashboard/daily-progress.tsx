@@ -1,15 +1,20 @@
 
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getDailyLogs, getDailyGoal } from "@/lib/actions";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getDailyLogs, getDailyGoal, updateDailyGoal } from "@/lib/actions";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 import { Log } from "@/lib/types";
+import { useState } from "react";
 
 export function DailyProgress() {
     const { user } = useAuth();
     const today = format(new Date(), 'yyyy-MM-dd');
+    const queryClient = useQueryClient();
+
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState("");
 
     const { data: logs = [] } = useQuery<Log[]>({
         queryKey: ['logs', today],
@@ -23,9 +28,39 @@ export function DailyProgress() {
         enabled: !!user,
     });
 
+    const updateGoalMutation = useMutation({
+        mutationFn: updateDailyGoal,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['goal'] });
+            setIsEditing(false);
+        }
+    });
+
     const current = logs.reduce((acc, log) => acc + log.calories, 0);
     const percentage = Math.min((current / goal) * 100, 100);
     const remaining = Math.max(0, goal - current);
+
+    const handleGoalClick = () => {
+        setEditValue(goal.toString());
+        setIsEditing(true);
+    };
+
+    const handleGoalSubmit = () => {
+        const newGoal = parseInt(editValue, 10);
+        if (!isNaN(newGoal) && newGoal > 0) {
+            updateGoalMutation.mutate(newGoal);
+        } else {
+            setIsEditing(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            handleGoalSubmit();
+        } else if (e.key === 'Escape') {
+            setIsEditing(false);
+        }
+    };
 
     return (
         <div className="glass-panel p-6 rounded-3xl relative overflow-hidden transition-all hover:border-white/20">
@@ -36,7 +71,25 @@ export function DailyProgress() {
                 </div>
                 <div className="text-right">
                     <p className="text-sm text-neutral-400">Objectif</p>
-                    <p className="font-bold tabular-nums text-white">{goal}</p>
+                    {isEditing ? (
+                        <input
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={handleGoalSubmit}
+                            onKeyDown={handleKeyDown}
+                            autoFocus
+                            className="bg-black/50 border border-neutral-700 rounded px-2 py-1 text-white font-bold tabular-nums w-20 text-right outline-none focus:border-emerald-500"
+                        />
+                    ) : (
+                        <p
+                            className="font-bold tabular-nums text-white cursor-pointer hover:text-emerald-400 transition-colors"
+                            onClick={handleGoalClick}
+                            title="Modifier l'objectif"
+                        >
+                            {goal}
+                        </p>
+                    )}
                 </div>
             </div>
 
