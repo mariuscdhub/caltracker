@@ -15,7 +15,8 @@ export function AddFoodForm() {
     const [type, setType] = useState<'cru' | 'cuit'>('cru');
     const [search, setSearch] = useState("");
     const [isFocused, setIsFocused] = useState(false);
-    const [weight, setWeight] = useState("");
+    const [weightInput, setWeightInput] = useState("");
+    const [caloriesInput, setCaloriesInput] = useState("");
     const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
 
     const queryClient = useQueryClient();
@@ -41,7 +42,8 @@ export function AddFoodForm() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['logs', today] });
             setSelectedFood(null);
-            setWeight("");
+            setWeightInput("");
+            setCaloriesInput("");
             setSearch("");
         },
     });
@@ -49,23 +51,51 @@ export function AddFoodForm() {
     const handleSelect = (food: FoodItem) => {
         setSelectedFood(food);
         setSearch("");
+        setWeightInput("");
+        setCaloriesInput("");
     };
 
-    const calculateCalories = () => {
-        if (!selectedFood || !weight) return 0;
-        // @ts-ignore - DB foods might map differently but we aligned keys
-        return Math.round((selectedFood.calories || selectedFood.kcal) * parseInt(weight) / 100);
+    const getKcalPer100g = () => {
+        if (!selectedFood) return 0;
+        // @ts-ignore
+        return selectedFood.kcal || selectedFood.calories || 0;
+    };
+
+    const handleWeightChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setWeightInput(val);
+        const w = parseInt(val);
+        if (!isNaN(w) && w > 0) {
+            const cals = Math.round((getKcalPer100g() * w) / 100);
+            setCaloriesInput(cals.toString());
+        } else {
+            setCaloriesInput("");
+        }
+    };
+
+    const handleCaloriesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setCaloriesInput(val);
+        const cals = parseInt(val);
+        const currentKcalPer100g = getKcalPer100g();
+        if (!isNaN(cals) && cals > 0 && currentKcalPer100g > 0) {
+            const w = Math.round((cals * 100) / currentKcalPer100g);
+            setWeightInput(w.toString());
+        } else {
+            setWeightInput("");
+        }
     };
 
     const handleAddLog = () => {
-        if (!selectedFood || !weight) return;
-        const calories = calculateCalories();
-        const proteinCalculated = Math.round((selectedFood.protein * parseInt(weight) / 100) * 10) / 10;
+        if (!selectedFood || !weightInput || !caloriesInput) return;
+        const finalWeight = parseInt(weightInput);
+        const finalCalories = parseInt(caloriesInput);
+        const proteinCalculated = Math.round((selectedFood.protein * finalWeight / 100) * 10) / 10;
 
         addLogMutation.mutate({
             name: selectedFood.name,
-            weight: parseInt(weight),
-            calories: calories,
+            weight: finalWeight,
+            calories: finalCalories,
             protein: proteinCalculated,
             type: selectedFood.type,
             date: today,
@@ -155,21 +185,27 @@ export function AddFoodForm() {
                                 <input
                                     type="number"
                                     placeholder="Poids"
-                                    value={weight}
-                                    onChange={(e) => setWeight(e.target.value)}
+                                    value={weightInput}
+                                    onChange={handleWeightChange}
                                     className="w-full bg-black/50 border border-white/10 rounded-xl py-4 px-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 text-center font-mono text-lg"
                                 />
                                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 text-sm font-bold">g</span>
                             </div>
-                            <div className="flex-1 flex items-center justify-center bg-white/5 rounded-xl border border-white/5">
-                                <span className="font-black text-white text-xl tabular-nums">{calculateCalories()}</span>
-                                <span className="text-neutral-500 ml-1 text-xs font-bold uppercase">Kcal</span>
+                            <div className="flex-1 relative">
+                                <input
+                                    type="number"
+                                    placeholder="Calories"
+                                    value={caloriesInput}
+                                    onChange={handleCaloriesChange}
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl py-4 px-4 text-emerald-400 placeholder:text-neutral-600 focus:outline-none focus:border-white/30 text-center font-black text-lg"
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 text-xs font-bold uppercase">Kcal</span>
                             </div>
                         </div>
 
                         <button
                             onClick={handleAddLog}
-                            disabled={!weight || addLogMutation.isPending}
+                            disabled={!weightInput || !caloriesInput || addLogMutation.isPending}
                             className="w-full bg-white text-black font-black text-lg py-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {addLogMutation.isPending ? "AJOUT..." : "AJOUTER"}
