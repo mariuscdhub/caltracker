@@ -1,0 +1,179 @@
+
+"use client";
+
+import { useState } from "react";
+import { Search, Plus, Flame, Utensils, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { INITIAL_FOODS, type StaticFood } from "@/lib/data/initial-foods";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getFoods, addLog, type CustomFood } from "@/lib/actions";
+import { format } from "date-fns";
+
+type FoodItem = StaticFood | CustomFood;
+
+export function AddFoodForm() {
+    const [type, setType] = useState<'cru' | 'cuit'>('cru');
+    const [search, setSearch] = useState("");
+    const [weight, setWeight] = useState("");
+    const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+
+    const queryClient = useQueryClient();
+    const today = format(new Date(), 'yyyy-MM-dd');
+
+    // Fetch custom foods
+    const { data: customFoods = [] } = useQuery({
+        queryKey: ['foods', search],
+        queryFn: () => getFoods(search),
+        enabled: search.length > 0,
+    });
+
+    // Merge static and custom foods
+    // Note: In a real app, we might want to move static foods to DB or handle this more efficiently
+    const allFoods = [...INITIAL_FOODS, ...customFoods];
+
+    const filteredFoods = allFoods.filter(
+        (f) => f.type === type && f.name.toLowerCase().includes(search.toLowerCase())
+    ).slice(0, 10); // Limit results
+
+    const addLogMutation = useMutation({
+        mutationFn: addLog,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['logs', today] });
+            setSelectedFood(null);
+            setWeight("");
+            setSearch("");
+        },
+    });
+
+    const handleSelect = (food: FoodItem) => {
+        setSelectedFood(food);
+        setSearch("");
+    };
+
+    const calculateCalories = () => {
+        if (!selectedFood || !weight) return 0;
+        // @ts-ignore - DB foods might map differently but we aligned keys
+        return Math.round((selectedFood.calories || selectedFood.kcal) * parseInt(weight) / 100);
+    };
+
+    const handleAddLog = () => {
+        if (!selectedFood || !weight) return;
+        const calories = calculateCalories();
+        const proteinCalculated = Math.round((selectedFood.protein * parseInt(weight) / 100) * 10) / 10;
+
+        addLogMutation.mutate({
+            name: selectedFood.name,
+            weight: parseInt(weight),
+            calories: calories,
+            protein: proteinCalculated,
+            type: selectedFood.type,
+            date: today,
+            foodId: String(selectedFood.id),
+        });
+    };
+
+    return (
+        <div className="glass-panel p-5 rounded-3xl space-y-5 animate-slide-up relative z-20">
+            {/* Type Toggle */}
+            <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                <button
+                    onClick={() => { setType('cru'); setSelectedFood(null); }}
+                    className={cn(
+                        "flex-1 py-3 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2",
+                        type === 'cru' ? "bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "text-neutral-500 hover:text-neutral-300"
+                    )}
+                >
+                    CRU
+                </button>
+                <button
+                    onClick={() => { setType('cuit'); setSelectedFood(null); }}
+                    className={cn(
+                        "flex-1 py-3 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2",
+                        type === 'cuit' ? "bg-orange-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.3)]" : "text-neutral-500 hover:text-neutral-300"
+                    )}
+                >
+                    CUIT
+                </button>
+            </div>
+
+            {/* Input Area */}
+            <div className="space-y-4">
+                {!selectedFood ? (
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                        <input
+                            type="text"
+                            placeholder="Rechercher un aliment..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full bg-black/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
+                        />
+
+                        {search && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto z-50">
+                                {filteredFoods.map(food => (
+                                    <button
+                                        key={food.id}
+                                        onClick={() => handleSelect(food)}
+                                        className="w-full text-left px-4 py-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
+                                    >
+                                        <span className="text-white font-medium">{food.name}</span>
+                                        <span className="text-xs text-neutral-500 group-hover:text-white transition-colors">
+                                            {/* @ts-ignore */}
+                                            {food.kcal || food.calories} kcal
+                                        </span>
+                                    </button>
+                                ))}
+                                {filteredFoods.length === 0 && (
+                                    <div className="p-4 text-center text-neutral-500 text-sm">
+                                        Aucun aliment trouvé
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="flex items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10">
+                            <div>
+                                <h4 className="font-bold text-white text-lg">{selectedFood.name}</h4>
+                                <p className={cn("text-xs font-bold uppercase tracking-wider", type === 'cru' ? "text-emerald-400" : "text-orange-400")}>
+                                    {/* @ts-ignore */}
+                                    {selectedFood.kcal || selectedFood.calories} kcal / 100g
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedFood(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                                <X className="w-5 h-5 text-neutral-400" />
+                            </button>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <div className="flex-1 relative">
+                                <input
+                                    type="number"
+                                    placeholder="Poids"
+                                    value={weight}
+                                    onChange={(e) => setWeight(e.target.value)}
+                                    className="w-full bg-black/50 border border-white/10 rounded-xl py-4 px-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 text-center font-mono text-lg"
+                                />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-600 text-sm font-bold">g</span>
+                            </div>
+                            <div className="flex-1 flex items-center justify-center bg-white/5 rounded-xl border border-white/5">
+                                <span className="font-black text-white text-xl tabular-nums">{calculateCalories()}</span>
+                                <span className="text-neutral-500 ml-1 text-xs font-bold uppercase">Kcal</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleAddLog}
+                            disabled={!weight || addLogMutation.isPending}
+                            className="w-full bg-white text-black font-black text-lg py-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {addLogMutation.isPending ? "AJOUT..." : "AJOUTER"}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
