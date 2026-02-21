@@ -8,17 +8,20 @@ import { useAuth } from "@/lib/auth-context";
 import { Log } from "@/lib/types";
 import { useState } from "react";
 
-export function DailyProgress() {
+interface DailyProgressProps {
+    currentDate: string;
+}
+
+export function DailyProgress({ currentDate }: DailyProgressProps) {
     const { user } = useAuth();
-    const today = format(new Date(), 'yyyy-MM-dd');
     const queryClient = useQueryClient();
 
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState("");
 
     const { data: logs = [] } = useQuery<Log[]>({
-        queryKey: ['logs', today],
-        queryFn: () => getDailyLogs(today) as Promise<Log[]>,
+        queryKey: ['logs', currentDate],
+        queryFn: () => getDailyLogs(currentDate) as Promise<Log[]>,
         enabled: !!user,
     });
 

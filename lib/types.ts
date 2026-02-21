@@ -28,5 +28,6 @@ export interface Recipe {
     name: string;
     totalCalories: number;
     ingredients: any[];
+    notes?: string;
     createdAt?: any;
 }

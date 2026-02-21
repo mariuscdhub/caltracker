@@ -130,7 +130,7 @@ export async function getRecipes() {
     return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
 }
 
-export async function createRecipe(data: { name: string, totalCalories: number, ingredients: any[] }) {
+export async function createRecipe(data: { name: string, totalCalories: number, ingredients: any[], notes?: string }) {
     const userId = getUserId();
     await addDoc(collection(db, "recipes"), {
         userId,

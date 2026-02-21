@@ -8,21 +8,24 @@ import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 import { Log } from "@/lib/types";
 
-export function LogList() {
+interface LogListProps {
+    currentDate: string;
+}
+
+export function LogList({ currentDate }: LogListProps) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const today = format(new Date(), 'yyyy-MM-dd');
 
     const { data: logs, isLoading } = useQuery<Log[]>({
-        queryKey: ['logs', today],
-        queryFn: () => getDailyLogs(today) as Promise<Log[]>,
+        queryKey: ['logs', currentDate],
+        queryFn: () => getDailyLogs(currentDate) as Promise<Log[]>,
         enabled: !!user,
     });
 
     const deleteMutation = useMutation({
         mutationFn: deleteLog,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['logs', today] });
+            queryClient.invalidateQueries({ queryKey: ['logs', currentDate] });
         },
     });
 
@@ -38,9 +41,13 @@ export function LogList() {
         );
     }
 
+    const isToday = currentDate === format(new Date(), 'yyyy-MM-dd');
+
     return (
         <div className="space-y-3 pb-32 animate-fade-in">
-            <h3 className="text-lg font-bold text-white px-1 mt-6">Aujourd'hui</h3>
+            <h3 className="text-lg font-bold text-white px-1 mt-6">
+                {isToday ? "Aujourd'hui" : "Historique du " + format(new Date(currentDate), 'dd/MM/yyyy')}
+            </h3>
 
             {logs.map((log) => (
                 <div

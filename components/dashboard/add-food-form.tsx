@@ -11,7 +11,11 @@ import { format } from "date-fns";
 
 type FoodItem = StaticFood | CustomFood;
 
-export function AddFoodForm() {
+interface AddFoodFormProps {
+    currentDate: string;
+}
+
+export function AddFoodForm({ currentDate }: AddFoodFormProps) {
     const [type, setType] = useState<'cru' | 'cuit'>('cru');
     const [search, setSearch] = useState("");
     const [isFocused, setIsFocused] = useState(false);
@@ -20,7 +24,6 @@ export function AddFoodForm() {
     const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
 
     const queryClient = useQueryClient();
-    const today = format(new Date(), 'yyyy-MM-dd');
 
     // Fetch custom foods
     const { data: customFoods = [] } = useQuery({
@@ -40,7 +43,7 @@ export function AddFoodForm() {
     const addLogMutation = useMutation({
         mutationFn: addLog,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['logs', today] });
+            queryClient.invalidateQueries({ queryKey: ['logs', currentDate] });
             setSelectedFood(null);
             setWeightInput("");
             setCaloriesInput("");
@@ -98,7 +101,7 @@ export function AddFoodForm() {
             calories: finalCalories,
             protein: proteinCalculated,
             type: selectedFood.type,
-            date: today,
+            date: currentDate,
             foodId: String(selectedFood.id),
         });
     };
