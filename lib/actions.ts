@@ -76,12 +76,18 @@ export async function getDailyLogs(dateStr: string) {
     const q = query(
         logsRef,
         where("userId", "==", userId),
-        where("date", "==", dateStr),
-        orderBy("createdAt", "desc")
+        where("date", "==", dateStr)
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+    const logs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Log));
+
+    // Sort locally to avoid Firebase composite index requirement
+    return logs.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
+    });
 }
 
 export async function addLog(data: { name: string, weight: number, calories: number, protein: number, type: 'cru' | 'cuit', date: string, foodId: string }) {
@@ -125,9 +131,17 @@ export async function updateDailyGoal(newGoal: number) {
 
 export async function getRecipes() {
     const userId = getUserId();
-    const q = query(collection(db, "recipes"), where("userId", "==", userId), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "recipes"), where("userId", "==", userId));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+    const recipes = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));
+
+    // Sort locally to avoid Firebase composite index requirement
+    return recipes.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return timeB - timeA;
+    });
 }
 
 export async function createRecipe(data: { name: string, totalCalories: number, ingredients: any[], notes?: string }) {
