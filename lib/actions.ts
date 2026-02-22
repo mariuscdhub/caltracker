@@ -80,12 +80,19 @@ export async function getDailyLogs(dateStr: string) {
     );
 
     const snapshot = await getDocs(q);
-    const logs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Log));
+    const logs = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now()
+        } as Log;
+    });
 
     // Sort locally to avoid Firebase composite index requirement
     return logs.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        const timeA = (a.createdAt as number) || 0;
+        const timeB = (b.createdAt as number) || 0;
         return timeB - timeA;
     });
 }
@@ -134,12 +141,19 @@ export async function getRecipes() {
     const q = query(collection(db, "recipes"), where("userId", "==", userId));
     const snapshot = await getDocs(q);
 
-    const recipes = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as any));
+    const recipes = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now()
+        } as any;
+    });
 
     // Sort locally to avoid Firebase composite index requirement
     return recipes.sort((a: any, b: any) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        const timeA = (a.createdAt as number) || 0;
+        const timeB = (b.createdAt as number) || 0;
         return timeB - timeA;
     });
 }
