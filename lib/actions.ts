@@ -1,4 +1,3 @@
-
 import { db, auth } from "@/lib/firebase";
 import type { Log } from "@/lib/types";
 import {
@@ -13,7 +12,8 @@ import {
     updateDoc,
     serverTimestamp,
     setDoc,
-    limit
+    limit,
+    deleteField
 } from "firebase/firestore";
 
 // --- HELPERS ---
@@ -33,25 +33,64 @@ export interface CustomFood {
     protein: number;
     type: 'cru' | 'cuit';
     userId: string;
+    createdAt?: any;
+    deletedAt?: any;
 }
 
 export async function getFoods(searchQuery: string = ""): Promise<CustomFood[]> {
     const userId = getUserId();
     const foodsRef = collection(db, "foods");
-
-    // Simple client-side filtering for now as Firestore queries are strict
     const q = query(foodsRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
 
-    let foods = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as CustomFood));
+    let foods = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+            deletedAt: data.deletedAt?.toMillis ? data.deletedAt.toMillis() : null
+        } as CustomFood;
+    }).filter(f => !f.deletedAt); // Only return NON-DELETED foods
 
     if (searchQuery) {
         foods = foods.filter((food) =>
             food.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }
-
     return foods;
+}
+
+export async function getDeletedFoods(): Promise<CustomFood[]> {
+    const userId = getUserId();
+    const q = query(collection(db, "foods"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const returnFoods: CustomFood[] = [];
+
+    for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const deletedAtMs = data.deletedAt?.toMillis ? data.deletedAt.toMillis() : null;
+
+        if (deletedAtMs) {
+            // Auto-delete if older than 30 days
+            if (now - deletedAtMs > thirtyDaysMs) {
+                deleteDoc(docSnap.ref).catch(console.error);
+                continue;
+            }
+
+            returnFoods.push({
+                id: docSnap.id,
+                ...data,
+                createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+                deletedAt: deletedAtMs
+            } as CustomFood);
+        }
+    }
+
+    return returnFoods.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
 }
 
 export async function addCustomFood(data: { name: string, calories: number, protein: number, type: 'cru' | 'cuit' }) {
@@ -64,7 +103,26 @@ export async function addCustomFood(data: { name: string, calories: number, prot
 }
 
 export async function deleteFood(foodId: string) {
+    // Soft delete
+    await updateDoc(doc(db, "foods", foodId), {
+        deletedAt: serverTimestamp()
+    });
+}
+
+export async function restoreFood(foodId: string) {
+    await updateDoc(doc(db, "foods", foodId), {
+        deletedAt: deleteField()
+    });
+}
+
+export async function hardDeleteFood(foodId: string) {
     await deleteDoc(doc(db, "foods", foodId));
+}
+
+export async function emptyFoodTrash() {
+    const deletedFoods = await getDeletedFoods();
+    const promises = deletedFoods.map(food => deleteDoc(doc(db, "foods", food.id)));
+    await Promise.all(promises);
 }
 
 // --- LOG ACTIONS ---
@@ -146,14 +204,51 @@ export async function getRecipes() {
         return {
             id: docSnap.id,
             ...data,
-            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now()
+            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+            deletedAt: data.deletedAt?.toMillis ? data.deletedAt.toMillis() : null
         } as any;
-    });
+    }).filter(recipe => !recipe.deletedAt); // Only return non-deleted recipes
 
     // Sort locally to avoid Firebase composite index requirement
     return recipes.sort((a: any, b: any) => {
         const timeA = (a.createdAt as number) || 0;
         const timeB = (b.createdAt as number) || 0;
+        return timeB - timeA;
+    });
+}
+
+export async function getDeletedRecipes() {
+    const userId = getUserId();
+    const q = query(collection(db, "recipes"), where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const returnRecipes: any[] = [];
+
+    for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
+        const deletedAtMs = data.deletedAt?.toMillis ? data.deletedAt.toMillis() : null;
+
+        if (deletedAtMs) {
+            // Auto-delete if older than 30 days
+            if (now - deletedAtMs > thirtyDaysMs) {
+                deleteDoc(docSnap.ref).catch(console.error);
+                continue;
+            }
+
+            returnRecipes.push({
+                id: docSnap.id,
+                ...data,
+                createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+                deletedAt: deletedAtMs
+            });
+        }
+    }
+
+    return returnRecipes.sort((a: any, b: any) => {
+        const timeA = (a.deletedAt as number) || 0;
+        const timeB = (b.deletedAt as number) || 0;
         return timeB - timeA;
     });
 }
@@ -168,5 +263,24 @@ export async function createRecipe(data: { name: string, totalCalories: number, 
 }
 
 export async function deleteRecipe(recipeId: string) {
+    // Soft delete
+    await updateDoc(doc(db, "recipes", recipeId), {
+        deletedAt: serverTimestamp()
+    });
+}
+
+export async function restoreRecipe(recipeId: string) {
+    await updateDoc(doc(db, "recipes", recipeId), {
+        deletedAt: deleteField()
+    });
+}
+
+export async function hardDeleteRecipe(recipeId: string) {
     await deleteDoc(doc(db, "recipes", recipeId));
+}
+
+export async function emptyRecipeTrash() {
+    const deletedRecipes = await getDeletedRecipes();
+    const promises = deletedRecipes.map(recipe => deleteDoc(doc(db, "recipes", recipe.id)));
+    await Promise.all(promises);
 }

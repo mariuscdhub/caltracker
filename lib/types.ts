@@ -7,6 +7,7 @@ export interface Food {
     protein: number;
     type: 'cru' | 'cuit';
     createdAt?: any;
+    deletedAt?: any;
 }
 
 export interface Log {
@@ -30,4 +31,5 @@ export interface Recipe {
     ingredients: any[];
     notes?: string;
     createdAt?: any;
+    deletedAt?: any;
 }
