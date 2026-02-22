@@ -1,5 +1,6 @@
 
 import { db, auth } from "@/lib/firebase";
+import type { Log } from "@/lib/types";
 import {
     collection,
     addDoc,
@@ -8,7 +9,6 @@ import {
     getDocs,
     query,
     where,
-    orderBy,
     Timestamp,
     updateDoc,
     serverTimestamp,
