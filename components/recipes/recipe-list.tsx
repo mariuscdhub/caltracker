@@ -7,6 +7,7 @@ import { Trash2, ChefHat } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth-context";
 import { Recipe } from "@/lib/types";
+import { EditRecipeDialog } from "./edit-recipe-dialog";
 
 export function RecipeList() {
     const { user } = useAuth();
@@ -44,12 +45,15 @@ export function RecipeList() {
                 <div key={recipe.id} className="glass-panel p-5 rounded-2xl group relative overflow-hidden transition-all hover:bg-white/5">
                     <div className="flex justify-between items-start mb-3">
                         <h3 className="font-bold text-white text-lg">{recipe.name}</h3>
-                        <button
-                            onClick={() => deleteMutation.mutate(recipe.id)}
-                            className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
-                        >
-                            <Trash2 className="w-5 h-5" />
-                        </button>
+                        <div className="flex gap-1">
+                            <EditRecipeDialog recipe={recipe} />
+                            <button
+                                onClick={() => deleteMutation.mutate(recipe.id)}
+                                className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex items-end justify-between">

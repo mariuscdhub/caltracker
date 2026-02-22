@@ -36,9 +36,50 @@ export interface CustomFood {
     createdAt?: any;
     deletedAt?: any;
 }
+import { INITIAL_FOODS } from "@/lib/data/initial-foods";
+
+export async function seedInitialFoodsIfNeeded(userId: string) {
+    const settingsQ = query(collection(db, "user_settings"), where("userId", "==", userId), limit(1));
+    const settingsSnap = await getDocs(settingsQ);
+
+    let hasSeeded = false;
+    let settingsDocId = null;
+
+    if (!settingsSnap.empty) {
+        hasSeeded = settingsSnap.docs[0].data().hasSeededFoods;
+        settingsDocId = settingsSnap.docs[0].id;
+    }
+
+    if (!hasSeeded) {
+        // Run migration
+        console.log("Migrating base foods to user database...");
+        const promises = INITIAL_FOODS.map(f => {
+            return addDoc(collection(db, "foods"), {
+                userId,
+                name: f.name,
+                calories: f.kcal,
+                protein: f.protein,
+                type: f.type,
+                createdAt: serverTimestamp()
+            });
+        });
+        await Promise.all(promises);
+
+        // Mark as seeded
+        if (settingsDocId) {
+            await updateDoc(doc(db, "user_settings", settingsDocId), { hasSeededFoods: true });
+        } else {
+            await addDoc(collection(db, "user_settings"), { userId, dailyGoal: 2500, hasSeededFoods: true });
+        }
+    }
+}
 
 export async function getFoods(searchQuery: string = ""): Promise<CustomFood[]> {
     const userId = getUserId();
+
+    // Auto-seed base foods if not done yet
+    await seedInitialFoodsIfNeeded(userId);
+
     const foodsRef = collection(db, "foods");
     const q = query(foodsRef, where("userId", "==", userId));
     const snapshot = await getDocs(q);
@@ -260,6 +301,10 @@ export async function createRecipe(data: { name: string, totalCalories: number, 
         ...data,
         createdAt: serverTimestamp()
     });
+}
+
+export async function updateRecipe(recipeId: string, data: { name: string, totalCalories: number, ingredients: any[], notes?: string }) {
+    await updateDoc(doc(db, "recipes", recipeId), data);
 }
 
 export async function deleteRecipe(recipeId: string) {

@@ -7,7 +7,6 @@ import { Trash2, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Food } from "@/lib/types";
-import { INITIAL_FOODS, type StaticFood } from "@/lib/data/initial-foods";
 import { useState } from "react";
 
 export function FoodList() {
@@ -28,8 +27,7 @@ export function FoodList() {
         },
     });
 
-    const allFoods = [...INITIAL_FOODS, ...foods];
-    const filteredFoods = allFoods.filter((food) =>
+    const filteredFoods = foods.filter((food) =>
         food.name.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -53,7 +51,6 @@ export function FoodList() {
             ) : (
                 <div className="space-y-3">
                     {filteredFoods.map((food) => {
-                        const isCustom = typeof food.id === "string";
                         // @ts-ignore
                         const calories = food.kcal || food.calories;
 
@@ -70,20 +67,15 @@ export function FoodList() {
                                         </span>
                                         <span className="text-white/60 font-mono">{calories} kcal / 100g</span>
                                         <span className="text-blue-400 font-mono">{food.protein}g Prot</span>
-                                        {!isCustom && (
-                                            <span className="px-1.5 py-0.5 bg-white/10 text-white/50 rounded uppercase text-[10px] tracking-wider ml-2">Base</span>
-                                        )}
                                     </div>
                                 </div>
-                                {isCustom && (
-                                    <button
-                                        onClick={() => deleteMutation.mutate(food.id as string)}
-                                        disabled={deleteMutation.isPending}
-                                        className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => deleteMutation.mutate(food.id as string)}
+                                    disabled={deleteMutation.isPending}
+                                    className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
                             </div>
                         );
                     })}

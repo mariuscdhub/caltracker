@@ -4,12 +4,11 @@
 import { useState } from "react";
 import { Search, Plus, Flame, Utensils, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { INITIAL_FOODS, type StaticFood } from "@/lib/data/initial-foods";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getFoods, addLog, type CustomFood } from "@/lib/actions";
 import { format } from "date-fns";
 
-type FoodItem = StaticFood | CustomFood;
+type FoodItem = CustomFood;
 
 interface AddFoodFormProps {
     currentDate: string;
@@ -32,11 +31,7 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
         enabled: search.length > 0,
     });
 
-    // Merge static and custom foods
-    // Note: In a real app, we might want to move static foods to DB or handle this more efficiently
-    const allFoods = [...INITIAL_FOODS, ...customFoods];
-
-    const filteredFoods = allFoods.filter(
+    const filteredFoods = customFoods.filter(
         (f) => f.type === type && f.name.toLowerCase().includes(search.toLowerCase())
     ).slice(0, 10); // Limit results
 
@@ -155,8 +150,7 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
                                     >
                                         <span className="text-white font-medium">{food.name}</span>
                                         <span className="text-xs text-neutral-500 group-hover:text-white transition-colors">
-                                            {/* @ts-ignore */}
-                                            {food.kcal || food.calories} kcal
+                                            {food.calories} kcal
                                         </span>
                                     </button>
                                 ))}

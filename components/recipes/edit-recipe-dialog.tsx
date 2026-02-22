@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Search, X, ChefHat, Save } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, X, ChefHat, Save, Edit2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getFoods, createRecipe, type CustomFood } from "@/lib/actions";
+import { getFoods, updateRecipe, type CustomFood } from "@/lib/actions";
+import { Recipe } from "@/lib/types";
 
 type FoodItem = CustomFood;
 
@@ -17,13 +18,26 @@ interface RecipeIngredient {
     protein: number;
 }
 
-export function CreateRecipeDialog() {
+interface EditRecipeDialogProps {
+    recipe: Recipe;
+}
+
+export function EditRecipeDialog({ recipe }: EditRecipeDialogProps) {
     const [isOpen, setIsOpen] = useState(false);
 
-    // Recipe fields
-    const [recipeName, setRecipeName] = useState("");
-    const [recipeNotes, setRecipeNotes] = useState("");
-    const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+    // Recipe fields (initialized with recipe props)
+    const [recipeName, setRecipeName] = useState(recipe.name);
+    const [recipeNotes, setRecipeNotes] = useState(recipe.notes || "");
+    const [ingredients, setIngredients] = useState<RecipeIngredient[]>(recipe.ingredients as any || []);
+
+    // Reset fields when dialog is opened (in case of stale data)
+    useEffect(() => {
+        if (isOpen) {
+            setRecipeName(recipe.name);
+            setRecipeNotes(recipe.notes || "");
+            setIngredients(recipe.ingredients as any || []);
+        }
+    }, [isOpen, recipe]);
 
     // Ingredient search & add fields
     const [search, setSearch] = useState("");
@@ -108,20 +122,17 @@ export function CreateRecipeDialog() {
 
     const totalCalories = ingredients.reduce((sum, ing) => sum + ing.calories, 0);
 
-    const createMutation = useMutation({
-        mutationFn: createRecipe,
+    const updateMutation = useMutation({
+        mutationFn: (data: any) => updateRecipe(recipe.id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['recipes'] });
             setIsOpen(false);
-            setRecipeName("");
-            setRecipeNotes("");
-            setIngredients([]);
         }
     });
 
     const handleSaveRecipe = () => {
         if (!recipeName || ingredients.length === 0) return;
-        createMutation.mutate({
+        updateMutation.mutate({
             name: recipeName,
             totalCalories,
             ingredients,
@@ -133,12 +144,10 @@ export function CreateRecipeDialog() {
         return (
             <button
                 onClick={() => setIsOpen(true)}
-                className="w-full glass-panel p-4 rounded-2xl flex items-center justify-center gap-3 cursor-pointer hover:bg-white/5 transition-colors group mb-6 border-dashed border-2 border-white/10 hover:border-white/20"
+                className="text-neutral-500 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-colors"
+                title="Modifier"
             >
-                <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Plus className="w-5 h-5" />
-                </div>
-                <span className="font-bold text-white">Créer une Recette</span>
+                <Edit2 className="w-5 h-5" />
             </button>
         );
     }
@@ -150,7 +159,7 @@ export function CreateRecipeDialog() {
                     <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
                         <ChefHat className="w-5 h-5 text-emerald-400" />
                     </div>
-                    <h2 className="text-xl font-black text-white">Nouvelle Recette</h2>
+                    <h2 className="text-xl font-black text-white">Modifier Recette</h2>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-neutral-400 hover:text-white">
                     <X className="w-5 h-5" />
@@ -302,11 +311,11 @@ export function CreateRecipeDialog() {
                     </div>
                     <button
                         onClick={handleSaveRecipe}
-                        disabled={!recipeName || ingredients.length === 0 || createMutation.isPending}
+                        disabled={!recipeName || ingredients.length === 0 || updateMutation.isPending}
                         className="bg-emerald-500 hover:bg-emerald-400 text-black font-black px-6 py-3 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.3)]"
                     >
                         <Save className="w-5 h-5" />
-                        {createMutation.isPending ? "Création..." : "Sauvegarder"}
+                        {updateMutation.isPending ? "Sauvegarde..." : "Enregistrer"}
                     </button>
                 </div>
             </div>
