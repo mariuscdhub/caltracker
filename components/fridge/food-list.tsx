@@ -79,7 +79,7 @@ export function FoodList() {
                                     <button
                                         onClick={() => deleteMutation.mutate(food.id as string)}
                                         disabled={deleteMutation.isPending}
-                                        className="text-neutral-600 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                        className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>

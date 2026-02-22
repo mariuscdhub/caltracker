@@ -46,7 +46,7 @@ export function RecipeList() {
                         <h3 className="font-bold text-white text-lg">{recipe.name}</h3>
                         <button
                             onClick={() => deleteMutation.mutate(recipe.id)}
-                            className="text-neutral-600 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            className="text-neutral-500 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors"
                         >
                             <Trash2 className="w-5 h-5" />
                         </button>
