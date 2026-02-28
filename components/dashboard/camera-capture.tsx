@@ -1,16 +1,20 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Image as ImageIcon, X, RotateCcw } from "lucide-react";
+import { Image as ImageIcon, X, RotateCcw, ScanLine, Tag, Camera, Scan } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Html5Qrcode } from "html5-qrcode";
+
+export type CameraMode = 'scan-food' | 'barcode' | 'food-label';
 
 interface CameraCaptureProps {
     onCapture: (base64: string) => void;
+    onBarcodeScan?: (barcode: string) => void;
     onClose: () => void;
 }
 
-export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
+export function CameraCapture({ onCapture, onBarcodeScan, onClose }: CameraCaptureProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -19,16 +23,61 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
     const [error, setError] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [mode, setMode] = useState<CameraMode>('scan-food');
+    const scannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
         setMounted(true);
-        startCamera(facingMode);
+        if (mode === 'scan-food') {
+            startCamera(facingMode);
+        } else if (mode === 'barcode') {
+            stopCamera();
+            startBarcodeScanner();
+        }
+
         return () => {
             stopCamera();
+            stopBarcodeScanner();
         };
-    }, [facingMode]);
+    }, [facingMode, mode]);
+
+    const startBarcodeScanner = async () => {
+        try {
+            if (!scannerRef.current) {
+                scannerRef.current = new Html5Qrcode("barcode-reader");
+            }
+
+            await scannerRef.current.start(
+                { facingMode: facingMode },
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 150 },
+                    aspectRatio: 1.0
+                },
+                (decodedText) => {
+                    if (onBarcodeScan) {
+                        onBarcodeScan(decodedText);
+                        handleClose();
+                    }
+                },
+                (errorMessage) => {
+                    // Ignore typical frame errors
+                }
+            );
+        } catch (err) {
+            console.error("Barcode scanner setup error", err);
+            setError("Impossible de démarrer le lecteur de code-barre.");
+        }
+    };
+
+    const stopBarcodeScanner = () => {
+        if (scannerRef.current && scannerRef.current.isScanning) {
+            scannerRef.current.stop().catch(console.error);
+        }
+    };
 
     const startCamera = async (mode: 'environment' | 'user') => {
+        stopBarcodeScanner();
         stopCamera();
         setError(null);
         try {
@@ -73,9 +122,25 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
-        // Match canvas size to video actual size
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        // Calculate size maintaining aspect ratio (max 800px)
+        const MAX_DIMENSION = 800;
+        let width = video.videoWidth;
+        let height = video.videoHeight;
+
+        if (width > height) {
+            if (width > MAX_DIMENSION) {
+                height = Math.round((height * MAX_DIMENSION) / width);
+                width = MAX_DIMENSION;
+            }
+        } else {
+            if (height > MAX_DIMENSION) {
+                width = Math.round((width * MAX_DIMENSION) / height);
+                height = MAX_DIMENSION;
+            }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
 
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -98,9 +163,37 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
 
         const reader = new FileReader();
         reader.onloadend = () => {
-            const base64String = reader.result as string;
-            onCapture(base64String);
-            stopCamera();
+            const img = new Image();
+            img.src = reader.result as string;
+            img.onload = () => {
+                if (!canvasRef.current) return;
+                const canvas = canvasRef.current;
+
+                const MAX_DIMENSION = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_DIMENSION) {
+                        height = Math.round((height * MAX_DIMENSION) / width);
+                        width = MAX_DIMENSION;
+                    }
+                } else {
+                    if (height > MAX_DIMENSION) {
+                        width = Math.round((width * MAX_DIMENSION) / height);
+                        height = MAX_DIMENSION;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                onCapture(canvas.toDataURL('image/jpeg', 0.8));
+                stopCamera();
+            };
         };
         reader.readAsDataURL(file);
     };
@@ -148,31 +241,63 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
             )}
 
             {/* Camera View */}
-            <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center">
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    className={cn(
-                        "w-full h-full object-cover",
-                        isMirror ? "scale-x-[-1]" : ""
-                    )}
-                />
-                <canvas ref={canvasRef} className="hidden" />
+            <div className="absolute inset-0 z-0 bg-neutral-900 flex items-center justify-center overflow-hidden">
+                {mode === 'barcode' ? (
+                    <div id="barcode-reader" className="w-full h-full object-cover"></div>
+                ) : (
+                    <>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            className={cn(
+                                "w-full h-full object-cover",
+                                isMirror ? "scale-x-[-1]" : ""
+                            )}
+                        />
+                        <canvas ref={canvasRef} className="hidden" />
 
-                {/* Visual Camera Guides */}
-                <div className="absolute inset-0 border-[1px] border-white/20 m-10 rounded-[40px] pointer-events-none shadow-[inset_0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center">
-                    <div className="w-16 h-16 border-t-2 border-l-2 border-white/40 absolute top-10 left-10 rounded-tl-3xl"></div>
-                    <div className="w-16 h-16 border-t-2 border-r-2 border-white/40 absolute top-10 right-10 rounded-tr-3xl"></div>
-                    <div className="w-16 h-16 border-b-2 border-l-2 border-white/40 absolute bottom-10 left-10 rounded-bl-3xl"></div>
-                    <div className="w-16 h-16 border-b-2 border-r-2 border-white/40 absolute bottom-10 right-10 rounded-br-3xl"></div>
-                </div>
+                        {/* Visual Camera Guides (only show for Scan Food mode) */}
+                        <div className="absolute inset-0 border-[1px] border-white/20 m-10 rounded-[40px] pointer-events-none shadow-[inset_0_0_50px_rgba(0,0,0,0.5)] flex items-center justify-center">
+                            <div className="w-16 h-16 border-t-2 border-l-2 border-white/40 absolute top-10 left-10 rounded-tl-3xl"></div>
+                            <div className="w-16 h-16 border-t-2 border-r-2 border-white/40 absolute top-10 right-10 rounded-tr-3xl"></div>
+                            <div className="w-16 h-16 border-b-2 border-l-2 border-white/40 absolute bottom-10 left-10 rounded-bl-3xl"></div>
+                            <div className="w-16 h-16 border-b-2 border-r-2 border-white/40 absolute bottom-10 right-10 rounded-br-3xl"></div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Controls bottom bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-black via-black/80 to-transparent p-8 flex items-end justify-between z-10">
-                {/* Gallery Button */}
-                <div className="w-16 flex items-end justify-start">
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-6 pt-20 flex flex-col items-center justify-end z-10 gap-8">
+
+                {/* Mode Tabs */}
+                <div className="flex gap-2 p-1 bg-black/40 backdrop-blur-md rounded-2xl w-full max-w-sm overflow-x-auto scrollbar-hide">
+                    {[
+                        { id: 'scan-food', label: 'Scan Food', icon: Scan },
+                        { id: 'barcode', label: 'Barcode', icon: ScanLine },
+                        { id: 'food-label', label: 'Food label', icon: Tag },
+                        { id: 'gallery', label: 'Gallery', icon: ImageIcon }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => {
+                                if (tab.id === 'gallery') {
+                                    fileInputRef.current?.click();
+                                } else {
+                                    setMode(tab.id as CameraMode);
+                                }
+                            }}
+                            className={cn(
+                                "flex flex-col items-center justify-center gap-2 p-3 rounded-xl min-w-[80px] transition-all flex-1",
+                                mode === tab.id ? "bg-white text-black" : "text-white hover:bg-white/10"
+                            )}
+                        >
+                            <tab.icon className="w-5 h-5" />
+                            <span className="text-[10px] font-bold tracking-wide whitespace-nowrap">{tab.label}</span>
+                        </button>
+                    ))}
+
                     <input
                         type="file"
                         accept="image/*"
@@ -180,27 +305,20 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                         onChange={handleGalleryUpload}
                         className="hidden"
                     />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-14 h-14 rounded-2xl bg-black/40 border border-white/20 flex items-center justify-center backdrop-blur-xl active:scale-95 transition-all overflow-hidden group"
-                    >
-                        <ImageIcon className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
-                    </button>
                 </div>
 
-                {/* Shutter Button */}
-                <div className="w-auto flex items-end justify-center">
-                    <button
-                        onClick={handleTakePhoto}
-                        disabled={!!error}
-                        className="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed group shadow-[0_0_30px_rgba(255,255,255,0.2)]"
-                    >
-                        <div className="w-[68px] h-[68px] rounded-full bg-white group-active:w-[60px] group-active:h-[60px] transition-all"></div>
-                    </button>
+                {/* Shutter Button Container (Hidden if in Barcode auto-scan mode) */}
+                <div className="flex w-full items-center justify-center h-24 relative mb-4">
+                    {mode !== 'barcode' && (
+                        <button
+                            onClick={handleTakePhoto}
+                            disabled={!!error}
+                            className="absolute left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed group shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                        >
+                            <div className="w-[68px] h-[68px] rounded-full bg-white group-active:w-[60px] group-active:h-[60px] transition-all"></div>
+                        </button>
+                    )}
                 </div>
-
-                {/* Empty Space for Balance */}
-                <div className="w-16 flex items-end justify-end"></div>
             </div>
         </div>,
         document.body

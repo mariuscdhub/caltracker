@@ -144,6 +144,51 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
         });
     };
 
+    const handleBarcodeScan = async (barcode: string) => {
+        setIsCameraOpen(false);
+        setImageAnalyzing(true);
+        try {
+            const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+            const data = await res.json();
+
+            if (data.status === 1 && data.product) {
+                const product = data.product;
+                const nutriments = product.nutriments || {};
+
+                // Prioritize per 100g, fallback to serving, fallback to 0
+                const kcal100g = nutriments['energy-kcal_100g'] || nutriments['energy-kcal_serving'] || 0;
+                const protein100g = nutriments.proteins_100g || nutriments.proteins_serving || 0;
+
+                if (kcal100g > 0) {
+                    const scannedFood: FoodItem = {
+                        id: "scanned-" + barcode,
+                        name: (product.product_name_fr || product.product_name || "Produit Inconnu").substring(0, 40),
+                        calories: Math.round(kcal100g),
+                        protein: Math.round(protein100g * 10) / 10,
+                        type: 'cru', // Defaulting to raw/packaged
+                        userId: "temp",
+                    };
+
+                    setType('cru');
+                    setSelectedFood(scannedFood);
+                    // Default to 100g for scanned items if no serving quantity is clear
+                    const suggestedWeight = product.product_quantity ? parseInt(product.product_quantity) : 100;
+                    setWeightInput(suggestedWeight.toString());
+                    setCaloriesInput(Math.round((kcal100g * suggestedWeight) / 100).toString());
+                } else {
+                    alert("Valeurs nutritionnelles introuvables pour ce produit.");
+                }
+            } else {
+                alert("Produit non trouvé dans la base de données (OpenFoodFacts).");
+            }
+        } catch (error) {
+            console.error("Barcode fetch error:", error);
+            alert("Erreur lors de la récupération des informations du code-barre.");
+        } finally {
+            setImageAnalyzing(false);
+        }
+    };
+
     return (
         <div className="glass-panel p-5 rounded-3xl space-y-5 animate-slide-up relative z-20">
             {isCameraOpen && (
@@ -153,6 +198,7 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
                         setImageAnalyzing(true);
                         aiImageMutation.mutate(base64);
                     }}
+                    onBarcodeScan={handleBarcodeScan}
                     onClose={() => setIsCameraOpen(false)}
                 />
             )}
