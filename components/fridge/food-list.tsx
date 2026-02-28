@@ -1,9 +1,9 @@
-
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getFoods, deleteFood } from "@/lib/actions";
-import { Trash2, Search } from "lucide-react";
+import { getFoods, deleteFood, addCustomFood } from "@/lib/actions";
+import { generateFoodNutritionAI } from "@/lib/ai-actions";
+import { Trash2, Search, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { Food } from "@/lib/types";
@@ -15,7 +15,7 @@ export function FoodList() {
     const [search, setSearch] = useState("");
 
     const { data: foods = [], isLoading } = useQuery<Food[]>({
-        queryKey: ['foods', 'all'], // 'all' to differentiate from search
+        queryKey: ['foods', 'all'],
         queryFn: () => getFoods("") as Promise<Food[]>,
         enabled: !!user,
     });
@@ -25,6 +25,23 @@ export function FoodList() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['foods'] });
         },
+    });
+
+    const aiMutation = useMutation({
+        mutationFn: async (foodName: string) => {
+            const data = await generateFoodNutritionAI(foodName);
+            await addCustomFood({ name: data.displayName, calories: data.raw.calories, protein: data.raw.protein, type: 'cru' });
+            await addCustomFood({ name: data.displayName, calories: data.cooked.calories, protein: data.cooked.protein, type: 'cuit' });
+            return data.displayName;
+        },
+        onSuccess: (displayName) => {
+            queryClient.invalidateQueries({ queryKey: ['foods'] });
+            setSearch("");
+            alert(`${displayName} ajouté avec succès (Versions Cru & Cuit) !`);
+        },
+        onError: (err: any) => {
+            alert(err.message || "Impossible de trouver cet aliment via l'IA");
+        }
     });
 
     const filteredFoods = foods.filter((food) =>
@@ -47,7 +64,24 @@ export function FoodList() {
             </div>
 
             {filteredFoods.length === 0 ? (
-                <div className="text-center text-neutral-600 py-10">Aucun aliment trouvé.</div>
+                <div className="text-center py-10 flex flex-col items-center gap-5">
+                    <p className="text-neutral-500 text-lg">Aucun aliment trouvé pour "{search}".</p>
+
+                    {search.length > 2 && (
+                        <button
+                            onClick={() => aiMutation.mutate(search)}
+                            disabled={aiMutation.isPending}
+                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-6 py-3 rounded-2xl flex items-center justify-center gap-3 hover:bg-emerald-500/20 transition-all shadow-[0_0_20px_rgba(16,185,129,0.15)] active:scale-95 disabled:opacity-50 disabled:cursor-wait font-bold"
+                        >
+                            {aiMutation.isPending ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                <Sparkles className="w-5 h-5 text-amber-400" />
+                            )}
+                            {aiMutation.isPending ? "Analyse IA de l'aliment..." : "Rechercher avec l'IA"}
+                        </button>
+                    )}
+                </div>
             ) : (
                 <div className="space-y-3">
                     {filteredFoods.map((food) => {

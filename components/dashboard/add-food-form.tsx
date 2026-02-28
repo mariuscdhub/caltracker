@@ -1,12 +1,12 @@
-
 "use client";
 
-import { useState } from "react";
-import { Search, Plus, Flame, Utensils, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { Search, Camera, Plus, Flame, Utensils, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getFoods, addLog, type CustomFood } from "@/lib/actions";
-import { format } from "date-fns";
+import { analyzeFoodImageAI } from "@/lib/ai-actions";
+import { CameraCapture } from "./camera-capture";
 
 type FoodItem = CustomFood;
 
@@ -21,6 +21,8 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
     const [weightInput, setWeightInput] = useState("");
     const [caloriesInput, setCaloriesInput] = useState("");
     const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+    const [imageAnalyzing, setImageAnalyzing] = useState(false);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const queryClient = useQueryClient();
 
@@ -44,6 +46,33 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
             setCaloriesInput("");
             setSearch("");
         },
+    });
+
+    const aiImageMutation = useMutation({
+        mutationFn: analyzeFoodImageAI,
+        onSuccess: (data) => {
+            // Créer un aliment temporaire basé sur la réponse de l'IA
+            const estimatedKcalPer100g = Math.round((data.calories / data.estimatedWeight) * 100);
+
+            const aiFood: FoodItem = {
+                id: "temp-ai-" + Date.now().toString(),
+                name: data.displayName + " (Estimé par l'IA)",
+                calories: estimatedKcalPer100g,
+                protein: Math.round((data.protein / data.estimatedWeight) * 100 * 10) / 10,
+                type: data.type,
+                userId: "temp",
+            };
+
+            setType(data.type);
+            setSelectedFood(aiFood);
+            setWeightInput(data.estimatedWeight.toString());
+            setCaloriesInput(data.calories.toString());
+            setImageAnalyzing(false);
+        },
+        onError: (err: any) => {
+            alert(err.message || "Erreur lors de l'analyse.");
+            setImageAnalyzing(false);
+        }
     });
 
     const handleSelect = (food: FoodItem) => {
@@ -91,7 +120,8 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
         const proteinCalculated = Math.round((selectedFood.protein * finalWeight / 100) * 10) / 10;
 
         addLogMutation.mutate({
-            name: selectedFood.name,
+            // Nettoyer le nom s'il vient de l'IA
+            name: selectedFood.name.replace(" (Estimé par l'IA)", ""),
             weight: finalWeight,
             calories: finalCalories,
             protein: proteinCalculated,
@@ -103,6 +133,17 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
 
     return (
         <div className="glass-panel p-5 rounded-3xl space-y-5 animate-slide-up relative z-20">
+            {isCameraOpen && (
+                <CameraCapture
+                    onCapture={(base64) => {
+                        setIsCameraOpen(false);
+                        setImageAnalyzing(true);
+                        aiImageMutation.mutate(base64);
+                    }}
+                    onClose={() => setIsCameraOpen(false)}
+                />
+            )}
+
             {/* Type Toggle */}
             <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
                 <button
@@ -128,39 +169,48 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
             {/* Input Area */}
             <div className="space-y-4">
                 {!selectedFood ? (
-                    <div className="relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
-                        <input
-                            type="text"
-                            placeholder="Rechercher un aliment..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onFocus={() => setIsFocused(true)}
-                            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-                            className="w-full bg-black/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
-                        />
+                    <div className="relative flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" />
+                            <input
+                                type="text"
+                                placeholder="Rechercher un aliment..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onFocus={() => setIsFocused(true)}
+                                onBlur={() => setTimeout(() => setIsFocused(false), 200)}
+                                className="w-full bg-black/50 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-neutral-600 focus:outline-none focus:border-white/30 focus:bg-black/70 transition-all"
+                            />
 
-                        {(search || isFocused) && (
-                            <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto z-50">
-                                {filteredFoods.map(food => (
-                                    <button
-                                        key={food.id}
-                                        onClick={() => handleSelect(food)}
-                                        className="w-full text-left px-4 py-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
-                                    >
-                                        <span className="text-white font-medium">{food.name}</span>
-                                        <span className="text-xs text-neutral-500 group-hover:text-white transition-colors">
-                                            {food.calories} kcal
-                                        </span>
-                                    </button>
-                                ))}
-                                {filteredFoods.length === 0 && (
-                                    <div className="p-4 text-center text-neutral-500 text-sm">
-                                        Aucun aliment trouvé
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            {(search || isFocused) && filteredFoods.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-neutral-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto z-50">
+                                    {filteredFoods.map(food => (
+                                        <button
+                                            key={food.id}
+                                            onClick={() => handleSelect(food)}
+                                            className="w-full text-left px-4 py-3 hover:bg-white/5 border-b border-white/5 last:border-0 flex justify-between items-center group"
+                                        >
+                                            <span className="text-white font-medium">{food.name}</span>
+                                            <span className="text-xs text-neutral-500 group-hover:text-white transition-colors">
+                                                {food.calories} kcal
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => setIsCameraOpen(true)}
+                            disabled={imageAnalyzing}
+                            className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl hover:bg-emerald-500/20 active:scale-95 transition-all flex items-center justify-center min-w-[56px]"
+                        >
+                            {imageAnalyzing ? (
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                            ) : (
+                                <Camera className="w-6 h-6" />
+                            )}
+                        </button>
                     </div>
                 ) : (
                     <div className="space-y-4 animate-fade-in">
@@ -172,7 +222,7 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
                                     {selectedFood.kcal || selectedFood.calories} kcal / 100g
                                 </p>
                             </div>
-                            <button onClick={() => setSelectedFood(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                            <button onClick={() => { setSelectedFood(null); setWeightInput(""); setCaloriesInput(""); }} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                                 <X className="w-5 h-5 text-neutral-400" />
                             </button>
                         </div>
@@ -203,13 +253,21 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
                         <button
                             onClick={handleAddLog}
                             disabled={!weightInput || !caloriesInput || addLogMutation.isPending}
-                            className="w-full bg-white text-black font-black text-lg py-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-white text-black font-black text-lg py-4 rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {addLogMutation.isPending ? "AJOUT..." : "AJOUTER"}
                         </button>
                     </div>
                 )}
             </div>
+
+            {imageAnalyzing && (
+                <div className="absolute inset-0 bg-black/80 rounded-3xl z-50 flex flex-col items-center justify-center border border-emerald-500/30 backdrop-blur-sm">
+                    <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mb-4" />
+                    <p className="text-white font-bold animate-pulse">Analyse de l'image en cours...</p>
+                    <p className="text-neutral-400 text-sm mt-2 text-center px-4">Cal AI calcule les portions et nutriments</p>
+                </div>
+            )}
         </div>
     );
 }
