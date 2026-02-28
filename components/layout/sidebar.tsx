@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Refrigerator, ChefHat, ChartBar, LogOut } from "lucide-react";
+import { Home, Refrigerator, ChefHat, ChartBar, LogOut, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
@@ -28,8 +28,34 @@ export function Sidebar() {
         <>
             {/* Mobile Bottom Nav */}
             <div className="fixed bottom-0 left-0 right-0 z-50 bg-neutral-900/90 backdrop-blur-xl border-t border-white/10 md:hidden pb-safe">
-                <div className="flex justify-around items-center h-16">
-                    {navigation.map((item) => {
+                <div className="flex justify-around items-center h-16 relative">
+                    {navigation.slice(0, 2).map((item) => {
+                        const isActive = pathname.startsWith(item.href);
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={cn(
+                                    "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
+                                    isActive ? "text-white" : "text-neutral-500 hover:text-neutral-300"
+                                )}
+                            >
+                                <item.icon className={cn("h-6 w-6", isActive && "stroke-2")} strokeWidth={1.5} />
+                                <span className="text-[10px] font-medium">{item.name}</span>
+                            </Link>
+                        );
+                    })}
+
+                    <div className="flex flex-col items-center justify-center w-full h-full relative">
+                        <Link
+                            href="/journal?camera=true"
+                            className="absolute -top-6 flex items-center justify-center bg-emerald-500 w-14 h-14 rounded-full border-[6px] border-neutral-900 text-black hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                        >
+                            <Camera className="w-6 h-6" strokeWidth={2.5} />
+                        </Link>
+                    </div>
+
+                    {navigation.slice(2).map((item) => {
                         const isActive = pathname.startsWith(item.href);
                         return (
                             <Link

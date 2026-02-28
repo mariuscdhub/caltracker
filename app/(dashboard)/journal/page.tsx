@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { format, subDays, addDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
@@ -58,7 +58,9 @@ export default function JournalPage() {
             </div>
 
             <DailyProgress currentDate={selectedDate} />
-            <AddFoodForm currentDate={selectedDate} />
+            <Suspense fallback={<div className="h-64 rounded-3xl animate-pulse bg-white/5" />}>
+                <AddFoodForm currentDate={selectedDate} />
+            </Suspense>
             <LogList currentDate={selectedDate} />
         </div>
     );

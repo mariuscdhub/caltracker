@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Search, Camera, Plus, Flame, Utensils, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +26,18 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
 
     const queryClient = useQueryClient();
+    const searchParams = useSearchParams();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (searchParams.get("camera") === "true") {
+            setIsCameraOpen(true);
+            // Replace the URL to remove the parameter without triggering a refresh
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete("camera");
+            window.history.replaceState({}, "", newUrl.toString());
+        }
+    }, [searchParams]);
 
     // Fetch custom foods
     const { data: customFoods = [] } = useQuery({
