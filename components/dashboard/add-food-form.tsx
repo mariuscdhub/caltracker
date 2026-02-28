@@ -212,18 +212,6 @@ export function AddFoodForm({ currentDate }: AddFoodFormProps) {
                                 </div>
                             )}
                         </div>
-
-                        <button
-                            onClick={() => setIsCameraOpen(true)}
-                            disabled={imageAnalyzing}
-                            className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 p-4 rounded-xl hover:bg-emerald-500/20 active:scale-95 transition-all flex items-center justify-center min-w-[56px]"
-                        >
-                            {imageAnalyzing ? (
-                                <Loader2 className="w-6 h-6 animate-spin" />
-                            ) : (
-                                <Camera className="w-6 h-6" />
-                            )}
-                        </button>
                     </div>
                 ) : (
                     <div className="space-y-4 animate-fade-in">

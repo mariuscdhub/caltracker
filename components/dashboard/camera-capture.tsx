@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Image as ImageIcon, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +18,10 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     const [isMirror, setIsMirror] = useState(false);
     const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
     const [error, setError] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         startCamera(facingMode);
         return () => {
             stopCamera();
@@ -111,7 +114,9 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
         onClose();
     };
 
-    return (
+    if (!mounted) return null;
+
+    return createPortal(
         <div className="fixed inset-0 z-[100] bg-black flex flex-col justify-between overflow-hidden animate-fade-in">
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent">
@@ -197,6 +202,7 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
                 {/* Empty Space for Balance */}
                 <div className="w-16 flex items-end justify-end"></div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
